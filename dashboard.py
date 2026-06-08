@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+from us_counties import US_COUNTIES
 
 SUPABASE_URL = "https://qducnczihagvarhpmvxj.supabase.co"
 SUPABASE_KEY = "sb_publishable_2jTzuh0d7RQe_ahd8lf6Ow_5GaGAEtc"
@@ -30,7 +31,6 @@ def sb_delete(table, match):
 
 st.set_page_config(page_title="Arxies Ops", page_icon="🚪", layout="wide")
 
-# ── Auth ──
 if "authed" not in st.session_state:
     st.session_state.authed = False
 
@@ -48,7 +48,6 @@ if not st.session_state.authed:
                 st.error("Incorrect password")
     st.stop()
 
-# ── Sidebar nav ──
 st.sidebar.markdown("## Arxies")
 st.sidebar.markdown("Operations Dashboard")
 st.sidebar.markdown("---")
@@ -58,7 +57,6 @@ if st.sidebar.button("Sign out"):
     st.session_state.authed = False
     st.rerun()
 
-# ── Load data ──
 @st.cache_data(ttl=30)
 def load_requests():
     return sb_get("requests", "?order=created_at.desc")
@@ -98,10 +96,8 @@ market_map = {m["id"]: m["name"] for m in markets_data}
 STATUS_CYCLE = ["new", "review", "scheduled", "closed"]
 STATUS_EMOJI = {"new": "🔵 New", "review": "🟡 In review", "scheduled": "🟢 Scheduled", "closed": "✓ Closed"}
 
-# ── Requests ──
 if page == "📋 Requests":
     st.markdown("## Requests")
-
     col1, col2, col3, col4 = st.columns(4)
     counts = {"new":0,"review":0,"scheduled":0,"closed":0}
     for r in requests_data:
@@ -110,21 +106,18 @@ if page == "📋 Requests":
     col2.metric("New", counts["new"])
     col3.metric("In Review", counts["review"])
     col4.metric("Scheduled", counts["scheduled"])
-
     st.markdown("---")
     filter_col, refresh_col = st.columns([4,1])
     with filter_col:
-        status_filter = st.selectbox("Filter by status", ["All", "🔵 New", "🟡 In review", "🟢 Scheduled", "✓ Closed"], label_visibility="collapsed")
+        status_filter = st.selectbox("Filter", ["All", "🔵 New", "🟡 In review", "🟢 Scheduled", "✓ Closed"], label_visibility="collapsed")
     with refresh_col:
         if st.button("🔄 Refresh", use_container_width=True):
             clear_cache()
             st.rerun()
-
     filtered = requests_data
     if status_filter != "All":
         status_key = {"🔵 New":"new","🟡 In review":"review","🟢 Scheduled":"scheduled","✓ Closed":"closed"}[status_filter]
         filtered = [r for r in requests_data if r.get("status") == status_key]
-
     if not filtered:
         st.info("No requests found.")
     else:
@@ -148,13 +141,11 @@ if page == "📋 Requests":
                         clear_cache()
                         st.rerun()
 
-# ── Dispatches ──
 elif page == "📤 Dispatches":
     st.markdown("## Dispatches")
     if st.button("🔄 Refresh"):
         clear_cache()
         st.rerun()
-
     if not dispatches_data:
         st.info("No dispatches yet.")
     else:
@@ -171,14 +162,11 @@ elif page == "📤 Dispatches":
             })
         st.dataframe(rows, use_container_width=True, hide_index=True)
 
-# ── Vendors ──
 elif page == "👥 Vendors":
     st.markdown("## Vendors")
-
     with st.expander("➕ Add / Edit vendor", expanded=False):
-        edit_vendor = st.selectbox("Edit existing (or leave blank to add new)", ["— Add new —"] + [v["name"] for v in vendors_data])
+        edit_vendor = st.selectbox("Edit existing", ["— Add new —"] + [v["name"] for v in vendors_data])
         existing = next((v for v in vendors_data if v["name"] == edit_vendor), None) if edit_vendor != "— Add new —" else None
-
         v_name = st.text_input("Company name", value=existing["name"] if existing else "")
         v_contact = st.text_input("Contact name", value=existing.get("contact_name","") if existing else "")
         v_phone = st.text_input("Phone", value=existing.get("phone","") if existing else "")
@@ -188,9 +176,7 @@ elif page == "👥 Vendors":
         market_idx = market_names.index(current_market) if current_market in market_names else 0
         v_market = st.selectbox("Market", market_names, index=market_idx)
         v_notes = st.text_input("Notes", value=existing.get("notes","") if existing else "")
-
         market_id = next((m["id"] for m in markets_data if m["name"] == v_market), None)
-
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Save vendor", use_container_width=True):
@@ -208,32 +194,26 @@ elif page == "👥 Vendors":
                 sb_patch("vendors", f"id=eq.{existing['id']}", {"active": not existing.get("active", True)})
                 clear_cache()
                 st.rerun()
-
     st.markdown("---")
     if not vendors_data:
-        st.info("No vendors yet — add one above.")
+        st.info("No vendors yet.")
     else:
         rows = [{"Name": v["name"], "Contact": v.get("contact_name","—"), "Phone": v.get("phone","—"),
                  "Email": v.get("email","—"), "Market": market_map.get(v.get("market_id"),"—"),
                  "Active": "✅" if v.get("active") else "❌"} for v in vendors_data]
         st.dataframe(rows, use_container_width=True, hide_index=True)
 
-# ── Markets ──
 elif page == "📍 Markets":
     st.markdown("## Markets")
-
     with st.expander("➕ Add / Edit market", expanded=False):
-        edit_market = st.selectbox("Edit existing (or leave blank to add new)", ["— Add new —"] + [m["name"] for m in markets_data])
+        edit_market = st.selectbox("Edit existing", ["— Add new —"] + [m["name"] for m in markets_data])
         existing_market = next((m for m in markets_data if m["name"] == edit_market), None) if edit_market != "— Add new —" else None
-
         m_name = st.text_input("Market name", value=existing_market["name"] if existing_market else "")
-        m_state = st.text_input("State (2 letters)", value=existing_market.get("state","") if existing_market else "", max_chars=2).upper()
-
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Save market", use_container_width=True):
                 if m_name:
-                    payload = {"name": m_name, "state": m_state or None, "active": True}
+                    payload = {"name": m_name, "active": True}
                     if existing_market:
                         sb_patch("markets", f"id=eq.{existing_market['id']}", payload)
                     else:
@@ -245,24 +225,20 @@ elif page == "📍 Markets":
                 sb_patch("markets", f"id=eq.{existing_market['id']}", {"active": not existing_market.get("active", True)})
                 clear_cache()
                 st.rerun()
-
     st.markdown("---")
-
     if not markets_data:
         st.info("No markets yet — add one above.")
     else:
         for market in markets_data:
             with st.container(border=True):
-                # Market header
                 mc1, mc2 = st.columns([4,1])
                 with mc1:
                     status_badge = "✅ Active" if market.get("active") else "❌ Inactive"
-                    st.markdown(f"**{market['name']}**{', ' + market['state'] if market.get('state') else ''}  &nbsp; {status_badge}")
+                    st.markdown(f"**{market['name']}** &nbsp; {status_badge}")
                 with mc2:
                     vendor_count = len([v for v in vendors_data if v.get("market_id") == market["id"]])
                     st.caption(f"{vendor_count} vendor{'s' if vendor_count != 1 else ''}")
 
-                # Counties tabs
                 market_counties = [c for c in counties_data if c.get("market_id") == market["id"]]
                 tab_list, tab_add = st.tabs(["📋 Counties", "➕ Add county"])
 
@@ -273,21 +249,29 @@ elif page == "📍 Markets":
                         for county in market_counties:
                             cc1, cc2 = st.columns([4,1])
                             with cc1:
-                                st.markdown(f"{county['name']}, {county.get('state', market.get('state',''))}")
+                                st.markdown(f"{county['name']}, {county.get('state','')}")
                             with cc2:
-                                if st.button("Remove", key=f"del_county_{county['id']}"):
+                                if st.button("Remove", key=f"del_{county['id']}"):
                                     sb_delete("counties", f"id=eq.{county['id']}")
                                     clear_cache()
                                     st.rerun()
 
                 with tab_add:
-                    new_county = st.text_input("County name", placeholder="e.g. Travis", key=f"new_county_{market['id']}")
-                    new_county_state = st.text_input("State", value=market.get("state",""), max_chars=2, key=f"new_county_state_{market['id']}").upper()
-                    if st.button("Add county", key=f"add_county_{market['id']}"):
-                        if new_county:
+                    already_assigned = [f"{c['name']}, {c.get('state','')}" for c in market_counties]
+                    available = [c for c in US_COUNTIES if c not in already_assigned]
+                    selected_county = st.selectbox(
+                        "Search and select a county",
+                        ["— Select —"] + available,
+                        key=f"county_select_{market['id']}"
+                    )
+                    if st.button("Add county", key=f"add_{market['id']}"):
+                        if selected_county and selected_county != "— Select —":
+                            parts = selected_county.split(", ")
+                            county_name = parts[0]
+                            county_state = parts[1] if len(parts) > 1 else None
                             sb_post("counties", {
-                                "name": new_county.strip(),
-                                "state": new_county_state or None,
+                                "name": county_name,
+                                "state": county_state,
                                 "market_id": market["id"]
                             })
                             clear_cache()
