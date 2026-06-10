@@ -32,7 +32,7 @@ def sb_delete(table, match):
 st.set_page_config(page_title="Arxies Ops", page_icon="🚪", layout="wide")
 
 if "authed" not in st.session_state:
-    st.session_state.authed = False
+    st.session_state.authed = st.query_params.get("auth") == "1"
 
 if not st.session_state.authed:
     st.markdown("<br><br>", unsafe_allow_html=True)
@@ -43,6 +43,7 @@ if not st.session_state.authed:
         if st.button("Sign in", use_container_width=True):
             if pw == PASS:
                 st.session_state.authed = True
+                st.query_params["auth"] = "1"
                 st.rerun()
             else:
                 st.error("Incorrect password")
@@ -55,6 +56,7 @@ page = st.sidebar.radio("", ["📋 Requests", "📤 Dispatches", "👥 Vendors",
 st.sidebar.markdown("---")
 if st.sidebar.button("Sign out"):
     st.session_state.authed = False
+    st.query_params.clear()
     st.rerun()
 
 @st.cache_data(ttl=30)
